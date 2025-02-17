@@ -64,13 +64,6 @@ st.pyplot(fig)
 st.subheader("🔍 Kiểm tra dữ liệu thiếu (Missing Data)")
 st.write(df.isnull().sum())
 
-# Biểu đồ phân tích dữ liệu thiếu
-st.subheader("📊 Biểu đồ phân tích dữ liệu thiếu")
-fig, ax = plt.subplots(figsize=(8, 4))
-sns.heatmap(df.isnull(), cbar=False, cmap="viridis", ax=ax)
-ax.set_title("Biểu đồ dữ liệu thiếu")
-st.pyplot(fig)
-
 # Chuẩn hóa dữ liệu (Normalization/Standardization)
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
