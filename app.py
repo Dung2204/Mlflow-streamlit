@@ -32,8 +32,11 @@ mlflow.log_param("cross_val_folds", 5)
 
 # Tiền xử lý dữ liệu
 encoder = LabelEncoder()
-df["Sex"] = encoder.fit_transform(df["Sex"])
-df["Embarked"] = encoder.fit_transform(df["Embarked"])
+# Huấn luyện encoder với tất cả giá trị có thể có trong 'Sex' và 'Embarked'
+encoder.fit(pd.concat([df["Sex"], df["Embarked"]]))  # Kết hợp dữ liệu huấn luyện và các nhãn mới nếu có
+
+df["Sex"] = encoder.transform(df["Sex"])  # Mã hóa dữ liệu
+df["Embarked"] = encoder.transform(df["Embarked"])
 
 X = df.drop("Survived", axis=1)
 y = df["Survived"]
@@ -195,15 +198,28 @@ st.write(df.head())  # Hiển thị 5 dòng đầu tiên của dữ liệu
 # Dự đoán trên một mẫu dữ liệu mới
 sample_data = {
     "Pclass": [3],
-    "Sex": encoder.transform(["female"]),
+    "Sex": "female",  # Dữ liệu mẫu chưa mã hóa
     "Age": [30],
     "SibSp": [1],
     "Parch": [0],
     "Fare": [7.25],
-    "Embarked": encoder.transform(["C"])
+    "Embarked": "C"  # Dữ liệu mẫu chưa mã hóa
 }
 
 sample_df = pd.DataFrame(sample_data)
+
+# Xử lý nhãn 'Sex' và 'Embarked' nếu có lỗi (nhãn không có trong dữ liệu huấn luyện)
+try:
+    sample_df["Sex"] = encoder.transform(sample_df["Sex"])  # Chuyển 'Sex' thành giá trị mã hóa
+except ValueError:
+    # Nếu gặp lỗi, mã hóa giá trị mới thành một giá trị mặc định (ví dụ: gán giá trị 0)
+    sample_df["Sex"] = 0  # Hoặc bất kỳ giá trị mặc định nào bạn muốn
+
+try:
+    sample_df["Embarked"] = encoder.transform(sample_df["Embarked"])  # Chuyển 'Embarked' thành giá trị mã hóa
+except ValueError:
+    # Nếu gặp lỗi, mã hóa giá trị mới thành một giá trị mặc định (ví dụ: gán giá trị 0)
+    sample_df["Embarked"] = 0  # Hoặc bất kỳ giá trị mặc định nào bạn muốn
 
 # Tiền xử lý và chuẩn hóa dữ liệu mẫu trước khi dự đoán
 sample_scaled = scaler.transform(sample_df)
@@ -215,9 +231,8 @@ sample_prediction = model.predict(sample_scaled)
 st.subheader("🔮 Dự đoán trên mẫu dữ liệu mới")
 st.write(f"Khả năng sống sót: {'Survived' if sample_prediction[0] == 1 else 'Did not survive'}")
 
-# Kết thúc phiên làm việc của MLFlow
+# Kết thúc chạy MLFlow
 mlflow.end_run()
-
 
 # cd "C:\Users\Dell\OneDrive\Pictures\Documents\Code\python\OpenCV\HMVPYTHON\BaiThucHanh1"
 # streamlit run app.py
