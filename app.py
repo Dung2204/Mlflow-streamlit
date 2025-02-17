@@ -195,33 +195,24 @@ st.write(df.head())  # Hiển thị 5 dòng đầu tiên của dữ liệu
 # Dự đoán trên một mẫu dữ liệu mới
 sample_data = {
     "Pclass": [3],
-    "Sex": [0],  # Sử dụng giá trị mặc định cho 'Sex' (0 cho female)
+    "Sex": encoder.transform(["female"]),
     "Age": [30],
     "SibSp": [1],
     "Parch": [0],
     "Fare": [7.25],
-    "Embarked": [0]  # Sử dụng giá trị mặc định cho 'Embarked' (0 cho C)
+    "Embarked": encoder.transform(["C"])
 }
 
 sample_df = pd.DataFrame(sample_data)
 
-# Kiểm tra và xử lý nhãn 'Sex' và 'Embarked' nếu có lỗi
-try:
-    sample_df["Sex"] = encoder.transform(sample_df["Sex"])
-except ValueError:
-    sample_df["Sex"] = 0  # Gán giá trị mặc định
-
-try:
-    sample_df["Embarked"] = encoder.transform(sample_df["Embarked"])
-except ValueError:
-    sample_df["Embarked"] = 0  # Gán giá trị mặc định
-
-# Dự đoán cho mẫu dữ liệu mới
+# Tiền xử lý và chuẩn hóa dữ liệu mẫu trước khi dự đoán
 sample_scaled = scaler.transform(sample_df)
-prediction = model.predict(sample_scaled)
-st.write(f"Dự đoán sự sống sót của hành khách mẫu: {'Survived' if prediction[0] == 1 else 'Did not survive'}")
 
-mlflow.end_run()
+# Dự đoán
+sample_prediction = model.predict(sample_scaled)
 
-# cd "C:\Users\Dell\OneDrive\Pictures\Documents\Code\python\OpenCV\HMVPYTHON\BaiThucHanh1"
-# streamlit run app.py
+# Hiển thị kết quả dự đoán
+st.subheader("🔮 Dự đoán trên mẫu dữ liệu mới")
+st.write(f"Khả năng sống sót: {'Survived' if sample_prediction[0] == 1 else 'Did not survive'}")
+
+# Kết thúc phiên làm việc của MLFlow
