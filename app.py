@@ -1,72 +1,44 @@
+import mlflow
+import mlflow.sklearn
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, roc_curve, auc, confusion_matrix
+from sklearn.metrics import accuracy_score, confusion_matrix, roc_curve, auc
 from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import StandardScaler
 
 # Tải dữ liệu Titanic
 @st.cache_data
 def load_data():
     url = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv"
     df = pd.read_csv(url)
-    # Xóa các cột không cần thiết
     df.drop(columns=["Name", "Ticket", "Cabin"], inplace=True)
-    # Điền giá trị thiếu cho độ tuổi và nơi khởi hành
     df["Age"].fillna(df["Age"].median(), inplace=True)
     df["Embarked"].fillna(df["Embarked"].mode()[0], inplace=True)
     return df
 
 df = load_data()
 
-# Tiêu đề chính
-st.title("Phân Tích Dữ Liệu Titanic 🚢")
+# Khởi tạo MLFlow
+mlflow.start_run()
 
-# Hiển thị dữ liệu
-st.subheader("📌 Một số dòng dữ liệu từ tập Titanic")
-st.table(df.head())
+# Ghi lại thông tin mô hình
+mlflow.log_param("model_type", "Random Forest")
+mlflow.log_param("test_size", 0.3)
+mlflow.log_param("cross_val_folds", 5)
 
-# Biểu đồ phân phối các giá trị thiếu trong dữ liệu
-st.subheader("📊 Biểu đồ phân phối giá trị thiếu trong dữ liệu")
-fig, ax = plt.subplots(figsize=(8, 4))
-sns.heatmap(df.isnull(), cbar=False, cmap='viridis', ax=ax)
-ax.set_title("Phân phối giá trị thiếu trong các cột")
-st.pyplot(fig)
-
-# Biểu đồ phân phối giới tính
-st.subheader("📊 Phân phối giới tính của hành khách")
-fig, ax = plt.subplots(figsize=(6, 4))
-sns.countplot(x="Sex", data=df, palette="pastel", ax=ax)
-ax.set_title("Phân phối giới tính của hành khách")
-st.pyplot(fig)
-
-# Biểu đồ phân phối hạng vé
-st.subheader("📊 Phân phối hạng vé")
-fig, ax = plt.subplots(figsize=(6, 4))
-sns.countplot(x="Pclass", data=df, palette="coolwarm", ax=ax)
-ax.set_title("Phân phối hạng vé của hành khách")
-st.pyplot(fig)
-
-# Biểu đồ phân phối nơi khởi hành (Embarked)
-st.subheader("📊 Phân phối nơi khởi hành của hành khách")
-fig, ax = plt.subplots(figsize=(6, 4))
-sns.countplot(x="Embarked", data=df, palette="muted", ax=ax)
-ax.set_title("Phân phối nơi khởi hành của hành khách")
-st.pyplot(fig)
-
-# --- Tiền xử lý dữ liệu ---
-# Chuyển đổi các biến phân loại thành số
+# Tiền xử lý dữ liệu
 encoder = LabelEncoder()
 df["Sex"] = encoder.fit_transform(df["Sex"])
 df["Embarked"] = encoder.fit_transform(df["Embarked"])
 
-# --- Chia dữ liệu: 70% cho training, 15% cho validation, 15% cho test ---
-X = df.drop("Survived", axis=1)  # Xử lý tất cả các cột, trừ cột 'Survived'
-y = df["Survived"]  # Cột 'Survived' là nhãn mục tiêu
+X = df.drop("Survived", axis=1)
+y = df["Survived"]
 
-# Chia dữ liệu thành các tập Train, Validation, Test
+# Chia tập dữ liệu
 X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
 X_valid, X_test, y_valid, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
 
@@ -76,7 +48,7 @@ st.write(f"Tập huấn luyện (Train): {len(X_train)} mẫu")
 st.write(f"Tập kiểm tra (Test): {len(X_test)} mẫu")
 st.write(f"Tập kiểm thử (Validation): {len(X_valid)} mẫu")
 
-# --- Biểu đồ phân bố các tập dữ liệu ---
+# Biểu đồ phân bố các tập dữ liệu
 st.subheader("📊 Biểu đồ phân bố các tập dữ liệu")
 fig, ax = plt.subplots(figsize=(6, 4))
 sns.histplot(y_train, kde=True, color="blue", label="Train", ax=ax)
@@ -88,11 +60,59 @@ ax.set_ylabel("Số lượng")
 ax.legend()
 st.pyplot(fig)
 
-# --- Huấn luyện mô hình Random Forest ---
+# Kiểm tra dữ liệu thiếu
+st.subheader("🔍 Kiểm tra dữ liệu thiếu (Missing Data)")
+st.write(df.isnull().sum())
+
+# Biểu đồ phân tích dữ liệu thiếu
+st.subheader("📊 Biểu đồ phân tích dữ liệu thiếu")
+fig, ax = plt.subplots(figsize=(8, 4))
+sns.heatmap(df.isnull(), cbar=False, cmap="viridis", ax=ax)
+ax.set_title("Biểu đồ dữ liệu thiếu")
+st.pyplot(fig)
+
+# Chuẩn hóa dữ liệu (Normalization/Standardization)
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Biểu đồ phân phối dữ liệu sau khi chuẩn hóa
+st.subheader("📊 Biểu đồ phân phối dữ liệu sau khi chuẩn hóa")
+fig, ax = plt.subplots(figsize=(8, 4))
+sns.histplot(X_scaled, kde=True, ax=ax)
+ax.set_title("Phân phối dữ liệu sau khi chuẩn hóa")
+st.pyplot(fig)
+
+# Kiểm tra phân phối dữ liệu
+st.subheader("🔍 Kiểm tra phân phối dữ liệu")
+st.write("Phân phối dữ liệu trên tập huấn luyện (Train):")
+st.write(y_train.value_counts())
+
+st.write("Phân phối dữ liệu trên tập kiểm thử (Validation):")
+st.write(y_valid.value_counts())
+
+st.write("Phân phối dữ liệu trên tập kiểm tra (Test):")
+st.write(y_test.value_counts())
+
+# Biểu đồ phân phối dữ liệu
+st.subheader("📊 Biểu đồ phân phối dữ liệu")
+fig, ax = plt.subplots(figsize=(8, 4))
+sns.histplot(y_train, kde=True, color="blue", label="Train", ax=ax)
+sns.histplot(y_valid, kde=True, color="orange", label="Validation", ax=ax)
+sns.histplot(y_test, kde=True, color="green", label="Test", ax=ax)
+ax.set_title("Phân phối dữ liệu trên các tập dữ liệu")
+ax.set_xlabel("Survived")
+ax.set_ylabel("Số lượng")
+ax.legend()
+st.pyplot(fig)
+
+# Huấn luyện mô hình Random Forest
 model = RandomForestClassifier(n_estimators=100, random_state=42)
 
 # Cross-Validation trên tập training
 cross_val_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='accuracy')
+
+# Ghi lại kết quả cross-validation vào MLFlow
+mlflow.log_metric("cross_val_mean_accuracy", cross_val_scores.mean())
 
 # Hiển thị kết quả cross-validation
 st.subheader("🧑‍🏫 Kết Quả Cross-Validation")
@@ -108,15 +128,46 @@ st.pyplot(fig)
 
 # Huấn luyện mô hình trên toàn bộ tập huấn luyện và đánh giá trên tập kiểm thử
 model.fit(X_train, y_train)
-y_pred = model.predict(X_test)
-accuracy = accuracy_score(y_test, y_pred)
+y_pred_train = model.predict(X_train)
+y_pred_valid = model.predict(X_valid)
+y_pred_test = model.predict(X_test)
 
-# Hiển thị kết quả huấn luyện và kiểm thử
+# Tính toán độ chính xác trên các tập dữ liệu
+accuracy_train = accuracy_score(y_train, y_pred_train)
+accuracy_valid = accuracy_score(y_valid, y_pred_valid)
+accuracy_test = accuracy_score(y_test, y_pred_test)
+
+# Ghi lại độ chính xác vào MLFlow
+mlflow.log_metric("train_accuracy", accuracy_train)
+mlflow.log_metric("valid_accuracy", accuracy_valid)
+mlflow.log_metric("test_accuracy", accuracy_test)
+
+# Lưu mô hình vào MLFlow
+mlflow.sklearn.log_model(model, "random_forest_model")
+
+# Lấy AUC
+fpr, tpr, _ = roc_curve(y_test, model.predict_proba(X_test)[:, 1])
+roc_auc = auc(fpr, tpr)
+
+# Hiển thị kết quả trên Streamlit
 st.subheader("📊 Kết Quả Huấn Luyện và Kiểm Thử")
-st.write(f"Độ chính xác trên tập kiểm thử: {accuracy:.2f}")
+st.write(f"Độ chính xác trên tập huấn luyện: {accuracy_train:.2f}")
+st.write(f"Độ chính xác trên tập kiểm thử (Validation): {accuracy_valid:.2f}")
+st.write(f"Độ chính xác trên tập kiểm tra (Test): {accuracy_test:.2f}")
+
+# Biểu đồ so sánh độ chính xác trên các tập dữ liệu
+st.subheader("📊 Biểu đồ so sánh độ chính xác trên các tập dữ liệu")
+accuracy_data = [accuracy_train, accuracy_valid, accuracy_test]
+labels = ['Train', 'Validation', 'Test']
+
+fig, ax = plt.subplots(figsize=(6, 4))
+sns.barplot(x=labels, y=accuracy_data, ax=ax, palette='viridis')
+ax.set_title('So sánh Độ Chính Xác trên các Tập Dữ Liệu')
+ax.set_ylabel('Độ Chính Xác')
+st.pyplot(fig)
 
 # --- Biểu đồ Confusion Matrix ---
-cm = confusion_matrix(y_test, y_pred)
+cm = confusion_matrix(y_test, y_pred_test)
 fig, ax = plt.subplots(figsize=(6, 4))
 sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", cbar=False, ax=ax)
 ax.set_xlabel("Dự đoán")
@@ -125,9 +176,6 @@ ax.set_title("Ma Trận Nhầm Lẫn (Confusion Matrix)")
 st.pyplot(fig)
 
 # --- Biểu đồ ROC ---
-fpr, tpr, _ = roc_curve(y_test, model.predict_proba(X_test)[:,1])
-roc_auc = auc(fpr, tpr)
-
 st.subheader("📊 Biểu đồ ROC")
 fig, ax = plt.subplots(figsize=(8, 6))
 ax.plot(fpr, tpr, color='blue', lw=2, label=f'Random Forest (AUC = {roc_auc:.2f})')
@@ -140,14 +188,35 @@ ax.set_title('Biểu đồ ROC')
 ax.legend(loc='lower right')
 st.pyplot(fig)
 
-# --- Dự đoán trên mẫu dữ liệu ---
-st.subheader("🧑‍💻 Dự đoán trên mẫu dữ liệu")
-sample = X_test.sample(1)
-st.write("Mẫu dữ liệu:")
-st.write(sample)
+# Hiển thị một số dòng dữ liệu từ tập Titanic
+st.subheader("📊 Một số dòng dữ liệu từ tập Titanic")
+st.write(df.head())  # Hiển thị 5 dòng đầu tiên của dữ liệu
 
-prediction = model.predict(sample)
-st.write(f"Dự đoán sống sót: {'Sống' if prediction[0] == 1 else 'Chết'}")
+# Dự đoán trên một mẫu dữ liệu mới
+sample_data = {
+    "Pclass": [3],
+    "Sex": encoder.transform(["female"]),
+    "Age": [30],
+    "SibSp": [1],
+    "Parch": [0],
+    "Fare": [7.25],
+    "Embarked": encoder.transform(["C"])
+}
+
+sample_df = pd.DataFrame(sample_data)
+
+# Tiền xử lý và chuẩn hóa dữ liệu mẫu trước khi dự đoán
+sample_scaled = scaler.transform(sample_df)
+
+# Dự đoán
+sample_prediction = model.predict(sample_scaled)
+
+# Hiển thị kết quả dự đoán
+st.subheader("🔮 Dự đoán trên mẫu dữ liệu mới")
+st.write(f"Khả năng sống sót: {'Survived' if sample_prediction[0] == 1 else 'Did not survive'}")
+
+# Kết thúc phiên làm việc của MLFlow
+mlflow.end_run()
 
 
 # cd "C:\Users\Dell\OneDrive\Pictures\Documents\Code\python\OpenCV\HMVPYTHON\BaiThucHanh1"
