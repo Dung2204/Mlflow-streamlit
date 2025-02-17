@@ -93,17 +93,6 @@ st.write(y_valid.value_counts())
 st.write("Phân phối dữ liệu trên tập kiểm tra (Test):")
 st.write(y_test.value_counts())
 
-# Biểu đồ phân phối dữ liệu
-st.subheader("📊 Biểu đồ phân phối dữ liệu")
-fig, ax = plt.subplots(figsize=(8, 4))
-sns.histplot(y_train, kde=True, color="blue", label="Train", ax=ax)
-sns.histplot(y_valid, kde=True, color="orange", label="Validation", ax=ax)
-sns.histplot(y_test, kde=True, color="green", label="Test", ax=ax)
-ax.set_title("Phân phối dữ liệu trên các tập dữ liệu")
-ax.set_xlabel("Survived")
-ax.set_ylabel("Số lượng")
-ax.legend()
-st.pyplot(fig)
 
 # Huấn luyện mô hình Random Forest
 model = RandomForestClassifier(n_estimators=100, random_state=42)
